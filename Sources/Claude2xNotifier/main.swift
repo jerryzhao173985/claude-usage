@@ -129,6 +129,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     static let peakStartUTC = 12
     static let peakEndUTC = 18
 
+    static let claudeBundleId = "com.anthropic.claudefordesktop"
+
+    /// Persisted toggle: auto-open Claude when off-peak starts
+    var autoOpenClaude: Bool {
+        get { UserDefaults.standard.bool(forKey: "autoOpenClaude") }
+        set { UserDefaults.standard.set(newValue, forKey: "autoOpenClaude") }
+    }
+
+    // MARK: - Claude App Detection (patterns from github.com/dnakov/computer-use)
+
+    /// Check if Claude.app is currently running
+    func isClaudeRunning() -> Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: Self.claudeBundleId).isEmpty
+    }
+
+    /// Activate Claude.app (bring to front) if running, otherwise launch it
+    func activateClaude() {
+        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: Self.claudeBundleId)
+        if let app = apps.first {
+            app.activate()
+        } else {
+            openClaude()
+        }
+    }
+
     // MARK: - Core Logic
 
     /// Returns true when usage is normal (outside peak hours or on weekends).
@@ -347,11 +372,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Zone transition notifications
+        // Zone transition notifications + automation
         if let was = wasOffPeak, was != offPeak {
             let duration = nextTransition(from: now).map { $0.date.timeIntervalSince(now) }
             sendNotification(offPeak: offPeak, duration: duration)
             firedAdvanceWarning = false
+
+            // Auto-open Claude when off-peak starts
+            if offPeak && autoOpenClaude {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    self?.activateClaude()
+                }
+            }
         }
 
         wasOffPeak = offPeak
@@ -438,12 +470,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // ── Open Claude ──
+        // ── Claude App ──
         menu.addItem(NSMenuItem.separator())
+
+        // Claude running status
+        let claudeRunning = isClaudeRunning()
+        let claudeStatus = claudeRunning ? "Claude.app is running" : "Claude.app not running"
+        let claudeIcon = claudeRunning ? "circle.fill" : "circle"
+        let claudeColor: NSColor = claudeRunning ? .systemGreen : .tertiaryLabelColor
+        let statusMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        let statusIcon = NSTextAttachment()
+        if let img = NSImage(systemSymbolName: claudeIcon, accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [claudeColor])) {
+            img.size = NSSize(width: 8, height: 8)
+            statusIcon.image = img
+        }
+        let statusStr = NSMutableAttributedString(attachment: statusIcon)
+        statusStr.append(NSAttributedString(string: " \(claudeStatus)", attributes: [
+            .font: NSFont.systemFont(ofSize: 11),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]))
+        statusMenuItem.attributedTitle = statusStr
+        statusMenuItem.isEnabled = false
+        menu.addItem(statusMenuItem)
+
         let openItem = NSMenuItem(title: "Open Claude", action: #selector(openClaude), keyEquivalent: "o")
         openItem.keyEquivalentModifierMask = .command
         openItem.target = self
         menu.addItem(openItem)
+
+        // Auto-open toggle
+        let autoItem = NSMenuItem(title: "Auto-Open on Off-Peak", action: #selector(toggleAutoOpen), keyEquivalent: "")
+        autoItem.target = self
+        autoItem.state = autoOpenClaude ? .on : .off
+        menu.addItem(autoItem)
 
         // ── Today's Schedule (visual timeline) ──
         menu.addItem(NSMenuItem.separator())
@@ -493,6 +553,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let tlItem = NSMenuItem()
         tlItem.view = timeline
         menu.addItem(tlItem)
+
+        // ── Copy Schedule ──
+        let copyScheduleItem = NSMenuItem(title: "Copy Today\u{2019}s Schedule", action: #selector(copySchedule), keyEquivalent: "c")
+        copyScheduleItem.keyEquivalentModifierMask = [.command, .shift]
+        copyScheduleItem.target = self
+        menu.addItem(copyScheduleItem)
 
         // ── Peak Hours Info ──
         menu.addItem(NSMenuItem.separator())
@@ -562,6 +628,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             NSWorkspace.shared.open(URL(string: "https://claude.ai")!)
         }
+    }
+
+    @objc func toggleAutoOpen() {
+        autoOpenClaude.toggle()
+    }
+
+    @objc func copySchedule() {
+        let now = Date()
+        let schedule = todaySchedule(now: now)
+        let timeFmt = DateFormatter()
+        timeFmt.timeZone = TimeZone.current
+        timeFmt.dateFormat = "h:mm a"
+        let dayFmt = DateFormatter()
+        dayFmt.timeZone = TimeZone.current
+        dayFmt.dateFormat = "EEEE, MMM d"
+
+        var lines = ["Claude Peak Hours \u{2014} \(dayFmt.string(from: now))", ""]
+        for block in schedule {
+            let zone = block.isOffPeak ? "Off-Peak" : "Peak"
+            lines.append("\(timeFmt.string(from: block.start)) \u{2013} \(timeFmt.string(from: block.end))  \(zone)")
+        }
+        lines.append("")
+        lines.append("Peak: \(peakHoursLocalString()) weekdays")
+
+        let text = lines.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     @objc func copyTransitionTime(_ sender: NSMenuItem) {
