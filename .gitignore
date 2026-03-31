@@ -1,0 +1,17 @@
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+xcuserdata/
+AppIcon.iconset/
+AppIcon.icns
+icon_1024.png
+*.dSYM
+*.dSYM.zip
+.omc/
+.claude/
+.DS_Store
+firebase-debug.log
+iOS/build/
+iOS/Claude2x.xcodeproj
