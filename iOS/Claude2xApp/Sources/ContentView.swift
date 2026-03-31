@@ -29,6 +29,7 @@ struct ContentView: View {
                 VStack(spacing: 24) {
                     statusSection
                     countdownSection
+                    sinceLastChange
                     nextZonePreview
                     timelineSection
                     todayStatsSection
@@ -77,11 +78,15 @@ struct ContentView: View {
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
 
-            Text(offPeak ? "Normal usage rates" : "Usage burns faster right now")
+            Text(offPeak
+                 ? "Session limits drain at normal speed"
+                 : "Session limits drain faster right now")
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
-            Text("Peak: \(location.peakHoursString()) weekdays")
+            Text(offPeak
+                 ? "Best time for token-intensive work"
+                 : "Save heavy prompts for off-peak")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -103,6 +108,21 @@ struct ContentView: View {
                         .foregroundStyle(accentColor)
                         .contentTransition(.numericText())
                 }
+            }
+        }
+    }
+
+    // MARK: - Since Last Change
+
+    private var sinceLastChange: some View {
+        Group {
+            if let start = Claude2xLogic.zoneStartDate(from: now) {
+                HStack(spacing: 4) {
+                    Text(start, style: .relative)
+                    Text("since last change")
+                }
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.tertiary)
             }
         }
     }

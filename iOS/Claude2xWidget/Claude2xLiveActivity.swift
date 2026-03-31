@@ -21,8 +21,8 @@ struct Claude2xLiveActivity: Widget {
                         .foregroundStyle(context.state.isOffPeak ? .green : .orange)
 
                         Text(context.state.isOffPeak
-                             ? "Normal usage rates"
-                             : "Session limits burn faster")
+                             ? "Limits drain at normal speed"
+                             : "Session limits drain faster")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

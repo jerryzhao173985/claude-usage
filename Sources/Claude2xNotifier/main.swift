@@ -391,7 +391,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let statusColor: NSColor = offPeak ? .systemGreen : .systemOrange
         addStyledItem(statusText, to: menu, color: statusColor, bold: true)
 
-        let statusDetail = offPeak ? "Normal usage rates" : "Session limits burn faster"
+        let statusDetail = offPeak ? "Limits drain at normal speed" : "Session limits drain faster"
         addStyledItem(statusDetail, to: menu, size: 11, color: .secondaryLabelColor)
 
         if let next = nextTransition(from: now) {
@@ -416,6 +416,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 .foregroundColor: NSColor.secondaryLabelColor
             ])
             menu.addItem(timeItem)
+        }
+
+        // Since last change
+        if let zoneStart = zoneStartDate(from: now) {
+            let elapsed = now.timeIntervalSince(zoneStart)
+            let elapsedStr = formatCountdown(elapsed)
+            addStyledItem("\(elapsedStr) since last change", to: menu, size: 11, color: .tertiaryLabelColor)
         }
 
         // Zone progress bar

@@ -159,7 +159,7 @@ struct MediumWidgetView: View {
                             .font(.caption).fontWeight(.semibold)
                             .foregroundStyle(entry.isOffPeak ? .green : .orange)
                     }
-                    Text(entry.isOffPeak ? "Normal usage rates" : "Usage burns faster")
+                    Text(entry.isOffPeak ? "Limits drain normally" : "Limits drain faster")
                         .font(.system(size: 9)).foregroundStyle(.tertiary)
                 }
                 Spacer()
